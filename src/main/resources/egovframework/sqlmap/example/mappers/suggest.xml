@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="ants.com.board.memBoard.mapper.SuggestMapper">
+
+<select id="readSuggestList" parameterType="ants.com.board.memBoard.model.SuggestVo" resultType="ants.com.board.memBoard.model.SuggestVo">
+SELECT E.*	
+  FROM (SELECT ROWNUM RNUM, D.*	
+	      FROM (SELECT A.SGT_ID, A.SGT_TITLE, A.SGT_CONT, 
+                       to_char(A.REG_DT,'yyyy-mm-dd hh24:mm') as REG_DT, A.SGT_STATUS, A.CATEGORY_ID,
+                       A.DEL, A.TODO_ID, c.MEM_NAME, B.MEM_ID, B.REQ_ID
+	              FROM SUGGEST A, (SELECT TODO_ID, MEM_ID, REQ_ID
+	                                 FROM TODO 
+	                                WHERE REQ_ID = #{reqId}) B, MEMBER C
+		         WHERE A.TODO_ID = B.TODO_ID
+		           AND A.DEL = 'N'
+		           AND B.MEM_ID = C.MEM_ID
+				   <if test="searchKeyword != null and searchKeyword != ''">
+				        <choose>
+				         	<when test="searchCondition == 1">
+								AND	C.mem_name LIKE '%' || #{searchKeyword} || '%'
+							</when>
+				            <when test="searchCondition == 2">
+								AND	A.sgt_title LIKE '%' || #{searchKeyword} || '%'
+							</when>
+				            <when test="searchCondition == 3">
+								AND	A.sgt_cont LIKE '%' || #{searchKeyword} || '%'
+							</when>
+				     
+						</choose>
+				   </if>
+	            ORDER BY A.REG_DT DESC) D
+        WHERE ROWNUM <![CDATA[ <= ]]> ${lastIndex}
+   ) E 
+   <![CDATA[WHERE E.RNUM > #{firstIndex}]]>
+</select>
+
+<select id="searchTodo" parameterType="ants.com.board.manageBoard.model.TodoVo" resultType="ants.com.board.manageBoard.model.TodoVo">
+SELECT * 
+	  FROM TODO
+	 WHERE MEM_ID = #{memId}
+   	    AND REQ_ID = #{reqId}
+	
+</select>
+
+<select id="suggestPagingListCnt" parameterType="ants.com.board.memBoard.model.SuggestVo" resultType="java.lang.Integer">
+SELECT COUNT(*) 
+  FROM SUGGEST A, (SELECT TODO_ID, MEM_ID, REQ_ID
+                     FROM TODO 
+                    WHERE REQ_ID = #{reqId}) B, MEMBER C
+ WHERE A.TODO_ID = B.TODO_ID 
+   AND A.DEL = 'N'
+   AND B.MEM_ID = C.MEM_ID
+   <if test="searchKeyword != null and searchKeyword != ''">
+      	<choose>
+       		<when test="searchCondition == 1">
+			AND	C.mem_name LIKE '%' || #{searchKeyword} || '%'
+		</when>
+           <when test="searchCondition == 2">
+			AND	A.sgt_title LIKE '%' || #{searchKeyword} || '%'
+		</when>
+           <when test="searchCondition == 3">
+			AND	A.sgt_cont LIKE '%' || #{searchKeyword} || '%'
+		</when>
+	</choose>
+   </if>
+</select>
+
+<insert id="suggestInsert" parameterType="ants.com.board.memBoard.model.SuggestVo">
+INSERT INTO suggest (sgt_id,sgt_title,sgt_cont,
+    					reg_dt,sgt_status,category_id,todo_id, del) 
+				VALUES (
+			    #{sgtId},#{sgtTitle},#{sgtCont},SYSDATE,
+			    #{sgtStatus},#{categoryId},#{todoId},#{del})
+</insert>
+
+<select id="suggestDetail" parameterType="ants.com.board.memBoard.model.SuggestVo" resultType="ants.com.board.memBoard.model.SuggestVo">
+	    
+	SELECT b.mem_name,  
+	        c.sgt_id,
+			c.sgt_title,
+			c.sgt_cont,
+			to_char(c.REG_DT,'yyyy-mm-dd hh24:mm') as REG_DT,
+			c.sgt_status,
+			c.category_id,
+			c.todo_id,
+			c.del
+	FROM        
+		(select mem_id, todo_id
+		from todo a
+		where a.todo_id = todo_id) a , member b, suggest c
+	WHERE a.mem_id = b.mem_id
+	  and a.todo_id = c.todo_id
+	  and c.sgt_id = #{sgtId}
+	  and c.del ='N'
+	
+</select>
+
+<update id="suggestMod" parameterType="ants.com.board.memBoard.model.SuggestVo">
+	UPDATE SUGGEST
+	   SET TODO_ID = #{todoId}, 
+	       SGT_TITLE = #{sgtTitle},
+	       SGT_CONT = #{sgtCont}
+	 WHERE SGT_ID = #{sgtId} 
+</update>
+
+<update id="delSuggest" parameterType="ants.com.board.memBoard.model.SuggestVo">
+UPDATE SUGGEST
+       SET DEL = 'Y'
+  WHERE SGT_ID = #{sgtId}
+</update>
+
+<select id="getSgtSeq" resultType="java.lang.String">
+SELECT SGT_SEQ.NEXTVAL
+  FROM DUAL
+</select>
+
+
+<select id="suggestFileList" parameterType="ants.com.board.memBoard.model.SuggestVo" resultType="ants.com.file.model.PublicFileVo">
+SELECT * 
+  FROM PUBLICFILE
+ WHERE CATEGORY_ID = '4'
+     AND SOME_ID = #{sgtId}
+</select>
+
+
+<select id="suggestFile" parameterType="ants.com.file.model.PublicFileVo" resultType="ants.com.file.model.PublicFileVo">
+SELECT * 
+  FROM PUBLICFILE
+ WHERE PUB_ID = #{pubId}
+</select>
+
+<delete id="suggestFileDel" parameterType="ants.com.file.model.PublicFileVo">
+DELETE FROM PUBLICFILE
+ WHERE PUB_ID = #{pubId} 
+</delete>
+
+
+<update id="acceptOrReject" parameterType="ants.com.board.memBoard.model.SuggestVo">
+UPDATE SUGGEST
+	<set>
+		<if test="sgtStatus == 'ACCEPT'">
+			SGT_STATUS = 'ACCEPT'
+		</if>
+		<if test="sgtStatus == 'REJECT'">
+			SGT_STATUS = 'REJECT'
+		</if>
+	</set>
+ WHERE SGT_ID = #{sgtId} 
+</update>
+
+
+
+
+</mapper>

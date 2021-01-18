@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE form-validation PUBLIC 
+    "-//Apache Software Foundation//DTD Commons Validator Rules Configuration 1.1//EN" 
+    "http://jakarta.apache.org/commons/dtds/validator_1_1.dtd">
+
+<form-validation>
+		
+    <formset>
+        <form name="memberVo">
+        	<field property="memId" depends="required">
+        		<arg0 key="아이디" />
+			</field>
+			<field property="memName" depends="required">
+                <arg0 key="이름" />
+            </field>
+        	<field property="memPass" depends="required">
+        		<arg0 key="패스워드" />
+			</field>
+        </form>	
+    </formset>
+    	
+</form-validation>

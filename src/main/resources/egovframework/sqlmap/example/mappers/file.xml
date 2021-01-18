@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="ants.com.file.mapper.FileMapper">
+
+ <!-- 파일 등록하기 -->
+  <insert id="insertfile" parameterType="ants.com.file.model.PublicFileVo">
+	  <selectKey resultType="String" keyProperty="pubId" order="BEFORE"> 
+	  		select pub_seq.nextval FROM dual
+	  </selectKey>
+	  
+	  INSERT INTO publicfile (
+							    pub_id,
+							    pub_filepath,
+							    pub_filename,
+							    pub_extension,
+							    reg_dt,
+							    category_id,
+							    some_id,
+							    req_id,
+							    pub_size,
+							    mem_id
+							) VALUES (
+							    #{pubId},
+							    #{pubFilepath},
+							    #{pubFilename},
+							    #{pubExtension},
+							    sysdate,
+							    #{categoryId},
+							    #{someId},
+							    #{reqId},
+							    #{pubSize},
+							    #{memId}
+							)
+  </insert>
+  
+   <!-- 해당 게시글 파일들 조회 -->
+  <select id="getfiles" parameterType="ants.com.file.model.PublicFileVo" resultType="ants.com.file.model.PublicFileVo">
+  	 SELECT * 
+     FROM publicfile 
+     WHERE some_id = #{someId} and category_id = #{categoryId} 
+     	<if test="reqId != null and reqId !=''">
+     		and req_id = #{reqId}
+     	</if>
+     	<if test="reqId == null and reqId ==''">
+     	    and	req_id = (select req_id from issue where issue_id = #{someId})
+     	</if>
+  </select>
+  
+  
+  <!-- 파일 삭제 -->
+  <delete id="delfiles">
+  	DELETE FROM publicfile where pub_id= #{pubId}
+  
+  </delete>
+	
+  <!-- 파일명 변경 -->
+  <update id="modfilename" parameterType="ants.com.file.model.PublicFileVo">
+  	UPDATE privatefile
+  	   SET priv_filename = #{privFilename}
+  	 WHERE priv_id = #{privId}
+	   
+  </update>
+
+  <!-- 클릭한 파일 정보 -->
+  <select id="getfileDetail" parameterType="String" resultType="ants.com.file.model.PublicFileVo">
+  	 SELECT  pub_id, pub_filepath, pub_filename, pub_extension, reg_dt, category_id,
+      		 some_id, req_id, pub_size, mem_id
+     FROM publicfile 
+     WHERE pub_id = #{pubId}
+  </select>
+  
+  
+   <!-- 해당 프로젝트 파일 조회 -->
+  <select id="pubfilelist" parameterType="ants.com.file.model.PublicFileVo" resultType="ants.com.file.model.PublicFileVo">
+  	SELECT Z.*
+	      FROM (
+	      	SELECT ROWNUM RNUM , 
+	           	   S.*
+		      FROM (				  	
+					SELECT a.PUB_ID, a.PUB_EXTENSION ,a.pub_filename, to_char(a.reg_dt,'yyyy-mm-dd hh24:mi') as reg_dt ,
+						   a.pub_size , b.mem_name as mem_id , a.category_id , a.some_id
+					  FROM publicfile a, member b
+					 WHERE req_id = #{reqId}
+					   AND a.mem_id = b.mem_id
+                       AND a.category_id in (1,2,3,4,6)
+                      
+			        <if test="searchKeyword != null and searchKeyword != ''">
+				        <choose>				         	
+				            <when test="searchCondition == 1">
+								AND	a.pub_filename LIKE '%' || #{searchKeyword} || '%'
+							</when>
+							<when test="searchCondition == 2">
+								AND b.mem_name LIKE '%' || #{searchKeyword} || '%'
+							</when>	
+							<when test="searchCondition == 3">
+								AND a.PUB_EXTENSION LIKE lower('%' || #{searchKeyword} || '%')
+							</when>	
+									     
+						</choose>
+					</if>
+				    <if test = "pubExtension != null and pubExtension != ''">
+				    	<choose>				         	
+				            <when test="pubExtension == 'all'">
+								AND 1 = 1
+							</when>
+							<when test="pubExtension == 'other'">
+								AND  pub_extension not in('png', 'jpg','gif', 'xlsx', 'pptx', 'txt')
+							</when>	
+							<otherwise>
+								AND pub_extension = #{pubExtension}
+							</otherwise>		     
+						</choose>
+							
+					</if>
+					
+					<if test = "sort == 2 ">
+							ORDER BY reg_dt, to_number(a.PUB_ID) desc
+					</if>
+					<if test = "sort != 2 ">
+							ORDER BY reg_dt desc, to_number(a.PUB_ID)
+					</if>
+				     
+			     ) S
+	
+			 WHERE ROWNUM <![CDATA[ <= ]]> ${lastIndex} 
+			
+      ) Z
+     <![CDATA[WHERE Z.RNUM > #{firstIndex}]]>	
+     
+  </select>
+  
+  
+  <!-- 프로젝트에 해당하는 파일 수 조회하기 -->	
+	<select id="pubfilePagingListCnt" parameterType="ants.com.file.model.PublicFileVo"  
+				resultType="int">
+		SELECT count(*) as totCnt
+		FROM publicfile a, member b
+		WHERE req_id = #{reqId}
+		AND a.mem_id = b.mem_id
+		AND a.category_id in (1, 2,3,4,6)
+		<if test="searchKeyword != null and searchKeyword != ''">
+		        <choose>
+		            <when test="searchCondition == 1">
+						AND	pub_filename LIKE '%' || #{searchKeyword} || '%'
+					</when>
+		            <when test="searchCondition == 2">
+						AND b.mem_name LIKE '%' || #{searchKeyword} || '%'
+					</when>
+					<when test="searchCondition == 3">
+						AND a.PUB_EXTENSION LIKE lower('%' || #{searchKeyword} || '%')
+					</when>		         
+				</choose>
+		</if>		
+		<if test = "pubExtension != null and pubExtension != ''">
+		    	<choose>				         	
+		            <when test="pubExtension == 'all'">
+						AND 1 = 1
+					</when>
+					<when test="searchCondition == 'other'">
+						AND  pub_extension not in('png', 'jpg','gif', 'xlsx', 'pptx', 'txt')
+					</when>	
+					<otherwise>
+						AND pub_extension = #{pubExtension}
+					</otherwise>		     
+				</choose>
+		</if>
+	</select>
+  
+  
+</mapper>

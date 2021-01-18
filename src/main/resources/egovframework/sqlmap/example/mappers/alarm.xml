@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="ants.com.common.mapper.AlarmMapper">
+
+	<select id="alarmCount" resultType="ants.com.common.model.AlarmVo" parameterType="ants.com.common.model.AlarmVo">
+		SELECT 
+		    COUNT(CASE WHEN alarm_type='req-pl' THEN 1 END) as reqPl,
+		    COUNT(CASE WHEN alarm_type='res-pl' THEN 1 END) as resPl,
+		    COUNT(CASE WHEN alarm_type like 'reply%' THEN 1 END) as reply,
+		    COUNT(CASE WHEN alarm_type='posts' THEN 1 END) as posts,
+		    COUNT(*) as totalCnt
+		FROM alarm
+		WHERE mem_id = #{memId}
+		AND UPPER(alarm_status) = 'N'
+	</select>
+	
+	<insert id="alarmInsert" parameterType="ants.com.common.model.AlarmVo">
+		INSERT INTO alarm (
+		    alarm_id,
+		    alarm_cont,
+		    alarm_status,
+		    mem_id,
+		    alarm_type,
+		    reg_dt
+		)
+		VALUES (
+		    alarm_seq.nextval,
+		    #{alarmCont},
+		    'N',
+		    #{memId},
+		    #{alarmType},
+		    SYSDATE
+		)
+	</insert>
+	
+	<select id="alarmList" resultType="ants.com.common.model.AlarmVo" parameterType="ants.com.common.model.AlarmVo">
+		SELECT  *
+		    FROM(
+		    	SELECT ROWNUM rnum, a.*
+				FROM (SELECT b.alarm_id, b.alarm_cont, b.alarm_status, b.mem_id, b.alarm_type, TO_CHAR(b.reg_dt,'YYYY-MM-DD HH:MI') as reg_dt
+                        FROM alarm b
+                        WHERE mem_id = #{memId}
+                        <if test="searchCondition != null and searchCondition != ''">
+							    <choose>
+							        <when test="searchCondition == 1">
+										AND	(alarm_type = 'req-pl'
+										 OR alarm_type = 'res-pl' 
+										 OR alarm_type = 'req-pro'
+										 OR alarm_type = 'res-pro' )
+									</when>
+							        <when test="searchCondition == 2">
+										AND	alarm_type LIKE 'reply%' 
+									</when>
+							        <when test="searchCondition == 3">
+										AND	alarm_type = 'posts'
+									</when>
+								</choose>
+						</if>
+                        ORDER BY to_number(b.alarm_id)desc) a
+                <![CDATA[
+                WHERE rownum <= #{lastIndex})
+            WHERE rnum > #{firstIndex} 
+            ]]>
+	</select>
+	
+	<select id="alarmListCount" parameterType="ants.com.common.model.AlarmVo"
+		resultType="java.lang.Integer">
+	
+		    	SELECT COUNT(*)
+				  FROM alarm
+				 WHERE mem_id = #{memId}
+				 <if test="searchCondition != null and searchCondition != ''">
+							    <choose>
+							        <when test="searchCondition == 1">
+										AND	(alarm_type = 'req-pl'
+										 OR alarm_type = 'res-pl'
+										 OR alarm_type = 'req-pro'
+										 OR alarm_type = 'res-pro' )
+									</when>
+							        <when test="searchCondition == 2">
+										AND	alarm_type = 'reply'
+									</when>
+							        <when test="searchCondition == 3">
+										AND	alarm_type = 'posts'
+									</when>
+								</choose>
+				 </if>
+	
+	</select>
+	
+	<update id="alarmUpdate" parameterType="ants.com.common.model.AlarmVo">
+		UPDATE alarm
+		   SET alarm_status = 'Y'
+		 WHERE alarm_id = #{alarmId}
+		
+	</update>
+	
+	<delete id="alarmDelete" parameterType="java.util.ArrayList">
+		DELETE
+		  FROM alarm
+		<where>
+			alarm_id IN 
+			<foreach collection="list" item="item" separator="," open="(" close=")">
+				 #{item}
+			</foreach>
+		</where>
+	</delete>
+
+</mapper>

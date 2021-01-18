@@ -1,0 +1,492 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper
+	namespace="ants.com.board.manageBoard.mapper.ManageBoardMapper">
+	
+	<!--mem : 할일 리스트 조회 -->
+	<select id="getMyTodoList" parameterType="ants.com.board.manageBoard.model.TodoVo"
+		resultType="ants.com.board.manageBoard.model.TodoVo">
+		SELECT c.*
+			FROM (
+				SELECT
+				ROWNUM rnum, a.*
+				FROM (select * from (SELECT
+					todo.todo_id,
+					ABS(TO_DATE(TO_CHAR(todo.todo_start, 'YYYYMMDD')) -
+					To_date(to_char(SYSDATE,'yyyymmdd'))) as todo_start,
+					to_char(todo.todo_end,'yyyy-mm-dd') as todo_end,
+					todo.todo_cont,
+					todo_title,
+					todo.todo_percent,
+					todo.todo_importance,
+					todo.todo_level,
+					todo.req_id,
+					todo.todo_parentid,
+					todo.del,
+					member.mem_name AS mem_id
+				FROM( select *
+					from member)member, todo todo
+				WHERE
+					member.mem_id = todo.mem_id
+				AND
+					todo.del = 'N'
+				AND todo.req_id = #{reqId} 
+				AND member.mem_id = #{memId} 
+					<if test="searchKeyword != null and searchKeyword != ''">
+						<choose>
+							<when test="searchCondition == 1">
+								AND todo.todo_title LIKE '%' || #{searchKeyword} || '%'
+							</when>
+							<when test="searchCondition == 2">
+								AND todo.todo_cont LIKE '%' || #{searchKeyword} || '%'
+							</when>
+							<when test="searchCondition == 3">
+								AND todo.todo_percent LIKE '%' || #{searchKeyword} || '%'
+							</when>
+							
+						</choose>
+					</if>
+				order by todo_id desc))a
+				WHERE rownum  <![CDATA[ <= ]]> #{lastIndex}) c
+        		<![CDATA[WHERE rnum > #{firstIndex}]]>
+		
+		
+		</select>
+	<!--PL : 할일 리스트 조회 -->
+	<select id="getTodoList"
+		parameterType="ants.com.board.manageBoard.model.TodoVo"
+		resultType="ants.com.board.manageBoard.model.TodoVo">
+
+		SELECT c.*
+			FROM (
+				SELECT
+				ROWNUM rnum, a.*
+				FROM (select * from (SELECT
+					todo.todo_id,
+					ABS(TO_DATE(TO_CHAR(todo.todo_start, 'YYYYMMDD')) -
+					To_date(to_char(SYSDATE,'yyyymmdd'))) as todo_start,
+					to_char(todo.todo_end,'yyyy-mm-dd') as todo_end,
+					todo.todo_cont,
+					todo_title,
+					todo.todo_percent,
+					todo.todo_importance,
+					todo.todo_level,
+					todo.req_id,
+					todo.todo_parentid,
+					todo.del,
+					member.mem_name AS mem_id
+				FROM( select *
+					from member)member, todo todo
+				WHERE
+					member.mem_id = todo.mem_id
+				AND
+					todo.del = 'N'
+				AND todo.req_id = #{reqId} 
+				AND todo.todo_parentid is null
+					<if test="searchKeyword != null and searchKeyword != ''">
+						<choose>
+							<when test="searchCondition == 1">
+								AND member.mem_name LIKE '%' || #{searchKeyword} || '%'
+							</when>
+							<when test="searchCondition == 2">
+								AND todo.todo_cont LIKE '%' || #{searchKeyword} || '%'
+							</when>
+							<when test="searchCondition == 3">
+								AND todo.todo_title LIKE '%' || #{searchKeyword} || '%'
+							</when>
+							<when test="searchCondition == 4">
+								AND todo.todo_percent LIKE '%' || #{searchKeyword} || '%'
+							</when>
+						</choose>
+					</if>
+				order by todo_id desc))a
+				WHERE rownum  <![CDATA[ <= ]]> #{lastIndex}) c
+        		<![CDATA[WHERE rnum > #{firstIndex}]]>
+		</select>
+
+	<!-- 페이지처리위한 요구사항개수 -->
+		<select id="todoListCount" parameterType="ants.com.board.manageBoard.model.TodoVo"
+			resultType="java.lang.Integer">
+			
+				SELECT COUNT(*)
+					FROM todo a, member b
+					WHERE a.mem_id=b.mem_id
+					AND a.req_id = #{reqId}
+					AND a.del = 'N'
+					AND a.todo_parentid is null
+					
+				<if test="searchKeyword != null and searchKeyword != ''">
+						<choose>
+							<when test="searchCondition == 1">
+								AND b.mem_name LIKE '%' || #{searchKeyword} || '%'
+							</when>
+							<when test="searchCondition == 2">
+								AND a.todo_cont LIKE '%' || #{searchKeyword} || '%'
+							</when>
+							<when test="searchCondition == 3">
+								AND a.todo_title LIKE '%' || #{searchKeyword} || '%'
+							</when>
+							<when test="searchCondition == 4">
+								AND a.todo_percent LIKE '%' || #{searchKeyword} || '%'
+							</when>
+						</choose>
+					</if>
+				
+		</select>
+		
+	<!-- 내일감 페이지 처리를 위한 요구사항개수 -->
+		<select id="todoMyListCount" parameterType="ants.com.board.manageBoard.model.TodoVo"
+			resultType="java.lang.Integer">
+			SELECT COUNT(*)
+				FROM todo 
+				WHERE req_id = #{reqId}
+				AND mem_id= #{memId}
+				AND del = 'N'
+		    <if test="searchKeyword != null and searchKeyword != ''">
+						<choose>
+							<when test="searchCondition == 1">
+								AND todo_title LIKE '%' || #{searchKeyword} || '%'
+							</when>
+							<when test="searchCondition == 2">
+								AND todo_cont LIKE '%' || #{searchKeyword} || '%'
+							</when>
+							<when test="searchCondition == 3">
+								AND todo_percent LIKE '%' || #{searchKeyword} || '%'
+							</when>
+							
+						</choose>
+					</if>
+		</select>
+
+	<!-- 한개의 할일 조회 -->
+		<select id="getTodo"
+			parameterType="ants.com.board.manageBoard.model.TodoVo"
+			resultType="ants.com.board.manageBoard.model.TodoVo">
+			<![CDATA[
+			SELECT
+			    todo.todo_id,
+			    TO_CHAR(todo.todo_start,'yyyy/mm/dd') as todo_start,
+			    TO_CHAR(todo.todo_end,'yyyy/mm/dd') as todo_end,
+			    todo.todo_cont,
+			    todo.todo_title,
+			    todo.todo_percent,
+			    todo_importance,
+			    todo_level,
+			    todo.req_id,
+			    todo.todo_parentid,
+			    todo.del,
+			    todo.mem_id,
+                b.mem_name
+			FROM todo todo , (select * from member) b
+			WHERE todo.mem_id = b.mem_id
+			AND todo.del = 'N'
+			AND (todo.todo_id = #{todoId}
+            OR   todo.todo_parentid = #{todoId})
+            order by todo.todo_id asc
+			]]>
+		</select>
+		
+	<!-- 한개의 할일 조회 -->
+		<select id="mygetTodo"
+			parameterType="ants.com.board.manageBoard.model.TodoVo"
+			resultType="ants.com.board.manageBoard.model.TodoVo">
+			<![CDATA[
+			SELECT
+				    todo.todo_id,
+				    TO_CHAR(todo.todo_start,'yyyy/mm/dd') as todo_start,
+				    TO_CHAR(todo.todo_end,'yyyy/mm/dd') as todo_end,
+				    todo.todo_cont,
+				    todo.todo_title,
+				    todo.todo_percent,
+				    todo_importance,
+				    todo_level,
+				    todo.req_id,
+				    todo.todo_parentid,
+				    todo.del,
+				    todo.mem_id,
+	                b.mem_name
+				FROM todo todo , member b
+				WHERE todo.todo_id = #{todoId}
+				AND todo.del = 'N'
+	            AND todo.mem_id = b.mem_id	
+			]]>
+		</select>
+
+
+	<!-- 팀원 조회 -->
+		<select id="projectMemList"
+			parameterType="ants.com.board.manageBoard.model.TodoVo"
+			resultType="ants.com.member.model.MemberVo">
+			SELECT
+				member.mem_name,
+				member.mem_id,
+				projectmember.promem_id
+			FROM
+				member,
+				projectmember
+			WHERE
+				member.mem_id =
+				projectmember.mem_id
+			AND projectmember.req_id = #{reqId}
+			AND projectmember.promem_status = 'IN'
+		</select>
+
+	<!-- todoId 조회 (파일 ajax로 등록하기위함) -->
+	<select id ="gettodoId" resultType="String">
+		SELECT todo_seq.nextval FROM DUAL
+	</select>
+
+	<!-- 일감 생성 -->
+		<insert id="todoInsert"
+			parameterType="ants.com.board.manageBoard.model.TodoVo">
+			INSERT INTO todo (
+				todo_id,
+				todo_start,
+				todo_end,
+				TODO_CONT,
+				todo_title,
+				todo_percent,
+				todo_importance,
+				todo_level,
+				req_id,
+				mem_id,
+				todo_parentid,
+				del
+			) VALUES (
+				#{todoId},
+				TO_DATE(#{todoStart},'YYYY/MM/DD'),
+				TO_DATE(#{todoEnd},'YYYY/MM/DD'),
+				#{todoCont},
+				#{todoTitle},
+				'0',
+				#{todoImportance},
+				#{todoLevel},
+				#{reqId},
+				#{memId},
+				#{todoParentid, jdbcType=VARCHAR},
+				'N'
+			)
+		</insert>
+
+		<!-- 진행도 작성 -->
+		<update id="progressChange"
+			parameterType="ants.com.board.manageBoard.model.TodoVo">
+			UPDATE todo
+			SET
+				todo_percent =#{todoPercent}
+			WHERE
+				todo_id = #{todoId}
+		</update>
+		
+		<!-- 일감수정 -->
+		<update id="todoupdate"
+			parameterType="ants.com.board.manageBoard.model.TodoVo">
+			UPDATE todo
+			SET
+				todo_start = TO_DATE(#{todoStart},
+				'YYYY/MM/DD'),
+				todo_end = TO_DATE(#{todoEnd}, 'YYYY/MM/DD'),
+				todo_cont =#{todoCont},
+				todo_title =#{todoTitle},
+				todo_percent =#{todoPercent},
+				todo_importance =#{todoImportance},
+				todo_level =#{todoLevel},
+				mem_id= #{memId}
+			WHERE
+				todo_id = #{todoId}
+		</update>
+	
+		<!-- 일감 삭제 -->
+		<update id="tododelete"
+			parameterType="ants.com.board.manageBoard.model.TodoVo">
+			UPDATE todo
+				SET del='Y'
+				WHERE
+				todo_id = #{todoId}
+		</update>
+	
+		<!-- 인수인계 -->
+		<insert id="todoChangeMem"
+			parameterType="ants.com.board.manageBoard.model.TodoLogVo">
+			INSERT INTO todolog (
+				todo_id,
+				log_id,
+				log_comment,
+				before_id,
+				after_id,
+				reg_dt
+			) VALUES (
+				#{todoId},
+				LOG_SEQ.NEXTVAL,
+				#{logComment},
+				#{beforeId},
+				#{afterId},
+				TO_DATE(to_char(sysdate,'yyyymmddhh24miss'),'yyyymmddhh24miss')
+			)
+		</insert>
+		
+		<insert id="todoHistoryfirst" parameterType="ants.com.board.manageBoard.model.todoHistoryVo">		
+			INSERT INTO todohistory (
+			    todo_hid,
+			    todo_id,
+			    reg_dt,
+			    hpercent,
+			    mem_id,
+			    req_id
+			) VALUES (
+			    TODOHISTORY_SEQ.NEXTVAL,
+			    #{todoId},
+			   sysdate,
+			    '0',
+			    #{memId},
+			    #{reqId}
+			)
+		</insert>
+		<insert id="todoHistoryCnt" parameterType="ants.com.board.manageBoard.model.TodoLogVo">
+			INSERT INTO todohistory (
+				    todo_hid,
+				    todo_id,
+				    reg_dt,
+				    hpercent,
+				    mem_id,
+				    req_id
+				) VALUES (
+				    TODOHISTORY_SEQ.NEXTVAL,
+				    #{todoId},
+				   sysdate,
+				    #{hpercent},
+				    #{memId},
+				    #{reqId}
+				)
+		</insert>
+		
+		<!-- 프로젝트 멤버 가져오기 -->
+		<select id="projectList" parameterType="ants.com.member.model.ProjectVo"
+		resultType="ants.com.member.model.ProjectVo">
+			SELECT DISTINCT
+				project.req_id,
+	            project.pro_name,
+	            project.mem_id,
+                project.PRO_STATUS as proStatus,
+                to_char(PRO_CHANGE_DATE, 'yyyy-mm-dd') as proChangeDate
+			FROM(select * from project)project,
+				projectmember projectmember		
+			WHERE
+				projectmember.req_id = project.req_id
+			AND projectmember.mem_id = #{memId}
+			AND projectmember.promem_status = 'IN'
+	        AND project.req_id = #{reqId}
+		</select>
+		
+		<select id="pmProjectList" parameterType="ants.com.member.model.ProjectVo" resultType="ants.com.member.model.ProjectVo">
+			SELECT
+				project.req_id,
+	            project.pro_name,
+	            project.mem_id
+			FROM(select * from project)project,
+				reqlist r
+			WHERE
+				r.req_id = project.req_id
+			AND r.mem_id = #{memId}
+			AND r.del = 'N'
+	        AND project.req_id = #{reqId}
+		</select>
+		
+		<!-- 일감등록, 진행도 수정, 일감삭제시 프로젝트 진행도 계산용 -->
+		<select id="proPerChangebytodo" parameterType="ants.com.board.manageBoard.model.TodoVo" resultType ="java.lang.String">
+		SELECT 
+    		ROUND(SUM(todo_percent)/COUNT(todo_id),1)as pro_percent 
+		FROM todo 
+			WHERE req_id =#{reqId}
+			AND del ='N'
+		</select>
+		
+		<select id="todostackchart" parameterType="java.lang.String" resultType="ants.com.board.manageBoard.model.TodoVo">
+		    SELECT
+			    todo.mem_id as memId,
+			    round(sum(todo.todo_percent)/count(todo.mem_id)) as todo_percent,
+                member.z as memName
+			FROM  todo todo,(select mem_name as z, mem_id as z2 from member)member
+			WHERE todo.mem_id = member.z2
+            AND del = 'N'
+	   		AND  req_id = #{reqId}
+		    GROUP BY mem_id, todo.mem_id, member.z 
+		</select>
+		
+		<select id="donutChart" parameterType="java.lang.String" resultType="ants.com.board.manageBoard.model.TodoVo">
+			 SELECT
+			    todo.mem_id as memId,
+			    count(todo.todo_id) as todo_percent,
+                member.z as memName
+			FROM todo todo,(select mem_name as z, mem_id as z2 from member)member
+			WHERE todo.mem_id = member.z2
+            AND del = 'N'
+	   		AND  req_id = #{reqId}
+		    GROUP BY mem_id, todo.mem_id, member.z
+		</select>
+		
+		<select id="getAllTodo" parameterType="java.lang.String" resultType="ants.com.board.manageBoard.model.TodoVo">
+			SELECT  todo_id,
+					TO_CHAR(t.todo_start, 'DD-MM-YYYY') as todo_start,
+					TO_DATE(t.todo_end) - TO_DATE(t.todo_start) as todo_end,
+					t.todo_cont,
+					t.todo_title,
+					TRUNC(todo_percent/100,2) as todoPercent,
+					t.todo_importance,
+					t.todo_level,
+					t.req_id,
+					m.mem_name ,
+					t.todo_parentid,
+					t.del
+			  FROM todo t
+              LEFT OUTER JOIN member m
+                 ON m.mem_id = t.mem_id
+			WHERE t.req_id = #{reqId} 
+			ORDER BY t.todo_level
+</select>
+		
+		<select id="getTodolog" parameterType="java.lang.String" resultType="ants.com.board.manageBoard.model.TodoLogVo">
+		
+			SELECT
+			    t.todo_id as todoId,
+			    t.log_id as logId,
+			    t.log_comment as logComment,
+			    m.mem_name as beforeId,
+			    b.mem_name as afterId,
+			    to_char(t.reg_dt, 'YYYY-MM-DD hh24:mi') as regDt,
+			    TRUNC(sysdate-to_date(to_char(t.reg_dt, 'YYYY-MM-DD'),'YYYY-MM-DD')) as elapsedDay,
+			    trunc(mod((to_date(to_char(sysdate, 'yyyymmddhh24miss'),'yyyymmddhh24miss')-to_date(to_char(t.reg_dt,'yyyymmddhh24miss'),'yyyymmddhh24miss')),1)*24)  as elapsedTime,
+			    trunc(mod((to_date(to_char(sysdate, 'yyyymmddhh24miss'),'yyyymmddhh24miss')-to_date(to_char(t.reg_dt,'yyyymmddhh24miss'),'yyyymmddhh24miss'))*24,1)*60)  as elapsedMin 
+			FROM
+    			todolog t,(select * from member) m, (select * from member) b
+			WHERE t.before_id = m.mem_id 
+            and t.after_id = b.mem_id
+            and todo_id= #{todoId}
+			ORDER BY elapsedDay asc
+		</select>
+		
+		<select id="getSelectTodo" parameterType="ants.com.board.manageBoard.model.TodoVo" resultType="ants.com.board.manageBoard.model.TodoVo">
+			select  todo_id,
+					TO_CHAR(t.todo_start, 'DD-MM-YYYY') as todo_start,
+					TO_DATE(t.todo_end) - TO_DATE(t.todo_start) as todo_end,
+					t.todo_cont,
+					t.todo_title,
+					TRUNC(todo_percent/100,2) as todoPercent,
+					t.todo_importance,
+					t.todo_level,
+					t.req_id,
+					m.mem_name ,
+					t.todo_parentid,
+					t.del
+	       FROM todo t
+	       LEFT OUTER JOIN member m
+	                 ON m.mem_id = t.mem_id
+	       WHERE t.req_id = #{reqId}
+	       START WITH t.mem_id = #{memId}
+	       CONNECT BY PRIOR t.todo_parentid =  t.todo_id
+		</select>
+		
+		
+		
+		
+</mapper>

@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="ants.com.admin.mapper.AdminMapper">
+	<!-- 공지사항 리스트 -->
+	<select id="noticelist" resultType="ants.com.admin.model.NoticeVo" parameterType="ants.com.admin.model.NoticeVo">
+		
+		SELECT Z.*
+			FROM (
+				SELECT ROWNUM RNUM ,
+					 S.*
+				FROM (
+				
+					select *
+					from(
+						select *
+						from
+							(select notice_id,
+								    notice_title,
+								    notice_cont,
+								    to_char(REG_DT,'YYYY-MM-DD') as REG_DT,
+								    admin_id,
+								    del,
+								    importance
+							 from notice
+							 where importance = 'emg'
+							 and DEL = 'N'
+							 and notice_title is not null
+							 order by  reg_dt desc)
+							
+						union all
+						
+						select *
+						from
+							(select notice_id,
+								    notice_title,
+								    notice_cont,
+								    to_char(REG_DT,'YYYY-MM-DD') as REG_DT,
+								    admin_id,
+								    del,
+								    importance
+							 from notice
+							 where importance = 'gen'
+							 and DEL = 'N'
+							 and notice_title is not null
+							 order by reg_dt desc))
+						
+					<if test="searchKeyword != null and searchKeyword != ''">
+						<choose>
+							<when test="searchCondition == 1">
+								where notice_title LIKE '%' || #{searchKeyword} || '%'
+							</when>
+						</choose>
+					</if>
+<!-- 					ORDER BY notice_id desc -->
+					
+				) S
+					WHERE ROWNUM <![CDATA[ <= ]]> #{lastIndex}
+			) Z
+		<![CDATA[ WHERE Z.RNUM > #{firstIndex}]]>
+	</select>
+	
+	<!-- 공지사항게시글 수 조회하기 -->	
+	<select id="noticePagingListCnt" parameterType="ants.com.admin.model.NoticeVo"  resultType="int">
+		select count(*) as totCnt
+		from notice
+		where DEL = 'N'
+		<if test="searchKeyword != null and searchKeyword != ''">
+			<choose>
+				<when test="searchCondition == 1">
+					AND notice_title LIKE '%' || #{searchKeyword} || '%'
+				</when>
+			</choose>
+		</if>
+	</select>
+	
+	<!-- 각 공지사항게시글 내용 가져오기 -->
+	<select id="geteachnotice"  resultType ="ants.com.admin.model.NoticeVo" parameterType="String">
+			
+			SELECT notice_id, notice_title, notice_cont, to_char(REG_DT,'YYYY-MM-DD') as REG_DT,
+					admin_id, del, importance
+			FROM notice
+			WHERE notice_id = #{noticeId} and del = 'N'
+
+	</select>
+		
+	<!-- 공지사항 작성하기 -->
+	<insert id="insertnotice" parameterType="ants.com.admin.model.NoticeVo">
+		
+		INSERT INTO notice (
+		    notice_id, notice_title, notice_cont,  reg_dt,  
+		    admin_id, del, importance
+		) VALUES (
+		    NOTICE_SEQ.nextval, #{noticeTitle}, #{noticeCont}, SYSDATE, 
+		     #{adminId}, 'N', #{importance}
+		)
+		
+	</insert>
+	
+	<!-- 공지사항 수정하기 -->
+	<update id="updatenotice" parameterType="ants.com.admin.model.NoticeVo">
+		UPDATE NOTICE
+		SET
+			NOTICE_TITLE = #{noticeTitle},
+			NOTICE_CONT = #{noticeCont},
+			IMPORTANCE = #{importance}
+	    WHERE 
+	    	NOTICE_ID = #{noticeId}
+	</update>
+	
+	
+	<!-- 공지사항 삭제하기 -->
+	<update id="delnotice" parameterType="ants.com.admin.model.NoticeVo"> 
+		UPDATE notice 
+			set del = 'Y' 
+		where notice_id = #{noticeId}
+	</update>
+
+
+
+
+</mapper>

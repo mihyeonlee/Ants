@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="ants.com.admin.mapper.AdminMapper">
+
+	<select id="getAdmin" parameterType="ants.com.admin.model.AdminVo" resultType="ants.com.admin.model.AdminVo">
+		SELECT  admin_id,
+				admin_pass
+		FROM ADMIN
+		WHERE ADMIN_ID = #{adminId}
+	</select>
+	
+	<select id="adlogincheck" parameterType="ants.com.admin.model.AdminVo" resultType="ants.com.admin.model.AdminVo">
+		SELECT * FROM ADMIN
+		WHERE ADMIN_ID = #{adminId}
+		AND ADMIN_PASS = #{adminPass}
+	</select>
+	
+	<select id="allmemberlist" resultType="ants.com.member.model.MemberVo">
+		SELECT *
+		  FROM MEMBER
+	</select>
+
+
+	<!-- 회원 목록 -->
+	<select id="memberlist" parameterType="ants.com.member.model.MemberVo" resultType="ants.com.member.model.MemberVo">
+		SELECT c.*
+			FROM (
+				SELECT ROWNUM RNUM, a.*
+				FROM (
+					SELECT *
+					FROM MEMBER
+					WHERE DEL = 'N'
+					<if test="searchKeyword != null and searchKeyword != ''">
+						<choose>
+							<when test="searchCondition == 1">
+								AND mem_id LIKE '%' || #{searchKeyword} || '%'
+							</when>
+							<when test="searchCondition == 2">
+								AND mem_name LIKE '%' || #{searchKeyword} || '%'
+							</when>
+							<when test="searchCondition == 3">
+								AND mem_type LIKE '%' || #{searchKeyword} || '%'
+							</when>
+						</choose>
+					</if>
+				) a
+		WHERE ROWNUM <![CDATA[ <= ]]> #{lastIndex} ) c <![CDATA[ WHERE RNUM > #{firstIndex}]]>
+	</select>
+	
+	<!-- 목록 갯수  -->
+	<select id="memberlistPagingListCnt" parameterType="ants.com.member.model.MemberVo" resultType="int">
+		select count(*) as totCnt
+		from member
+		WHERE DEL = 'N'
+		<if test="searchKeyword != null and searchKeyword != ''">
+			<choose>
+				<when test="searchCondition == 1">
+					AND mem_id LIKE '%' || #{searchKeyword} || '%'
+				</when>
+				<when test="searchCondition == 2">
+					AND mem_name LIKE '%' || #{searchKeyword} || '%'
+				</when>
+				<when test="searchCondition == 3">
+					AND mem_type LIKE '%' || #{searchKeyword} || '%'
+				</when>
+			</choose>
+		</if>
+	</select>
+	
+	
+	
+	<select id="getMember" parameterType="ants.com.member.model.MemberVo"
+		resultType="ants.com.member.model.MemberVo">
+		SELECT  mem_id,
+			    mem_name,
+			    mem_pass,
+			    mem_tel,
+			    mem_filepath,
+			    mem_filename,
+			    UPPER(mem_alert) as mem_alert,
+			    UPPER(del) as del,
+			    UPPER(mem_type) as mem_type
+		FROM 	MEMBER
+		WHERE     MEM_ID = #{memId}
+	</select>
+	
+	<update id="memlistproupdate" parameterType="ants.com.member.model.MemberVo">
+		UPDATE MEMBER <set>
+	        <if test="memName != null">mem_name=#{memName},</if>
+	        <if test="memPass != null">mem_pass=#{memPass},</if>
+	        <if test="memTel != null">mem_tel=#{memTel},</if>
+	        <if test="memFilepath != null">mem_filepath=#{memFilepath},</if>	 	            
+	        <if test="memFilename != null">mem_filename=#{memFilename},</if>	 	             	                     	            
+	        <if test="memType != null">mem_type = #{memType},</if>	 	             	                     	            
+	    </set>   
+		WHERE MEM_ID = #{memId}
+	</update>
+	
+	<!-- 회원 삭제하기 -->
+	<update id="delmemlist" parameterType="ants.com.member.model.MemberVo"> 
+		UPDATE member 
+			set del = 'Y' 
+		where mem_id = #{memId}
+	</update>
+	
+<insert id="insertMemLoginLog" parameterType="ants.com.common.model.IpHistoryVo">
+INSERT INTO IPHISTORY (IPHIST_IDX,MEM_ID,IP_ADDR,IPHIST_DATE) 
+VALUES (IPHIST_SEQ.NEXTVAL,#{memId},#{ipAddr},SYSDATE)
+</insert>
+
+	<!-- 프로젝트 리스트 -->
+	<select id="projectlist" resultType="ants.com.member.model.ProjectVo" parameterType="ants.com.member.model.ProjectVo">
+		SELECT c.*
+			FROM (
+				SELECT ROWNUM RNUM, a.*
+				FROM (
+					SELECT req_id,
+				    mem_id,
+				    pro_name,
+				    pro_percent,
+				    to_char(REG_DT,'YYYY-MM-DD') as REG_DT,
+				    pro_status,
+				    del
+					FROM PROJECT
+					WHERE DEL = 'N'
+					AND pro_name != 'null'
+					AND mem_id != 'null'
+<!-- 					AND pro_status != 'null' -->
+
+					<if test="searchKeyword != null and searchKeyword != ''">
+						<choose>
+							<when test="searchCondition == 1">
+								AND pro_name LIKE '%' || #{searchKeyword} || '%'
+							</when>
+							<when test="searchCondition == 2">
+								AND mem_id LIKE '%' || #{searchKeyword} || '%'
+							</when>
+						</choose>
+					</if>
+					order by reg_dt desc
+				) a
+		WHERE ROWNUM <![CDATA[ <= ]]> #{lastIndex} ) c <![CDATA[ WHERE c.RNUM > #{firstIndex}]]>
+	</select>
+	
+	<!-- 프로젝트 카테고리 검색  -->
+	<select id="projectPagingListCnt" parameterType="ants.com.member.model.ProjectVo" resultType="int">
+		select count(*) as totCnt
+		from project
+		WHERE DEL = 'N'
+		AND pro_name is not null
+		AND mem_id != 'null'
+		<if test="searchKeyword != null and searchKeyword != ''">
+			<choose>
+				<when test="searchCondition == 1">
+					AND pro_name LIKE '%' || #{searchKeyword} || '%'
+				</when>
+				<when test="searchCondition == 2">
+					AND mem_id LIKE '%' || #{searchKeyword} || '%'
+				</when>
+			</choose>
+		</if>
+	</select>
+	
+	<!-- 프로젝트 삭제하기 -->
+	<update id="delproject" parameterType="ants.com.member.model.ProjectVo" >
+		UPDATE project
+			SET DEL = 'Y'
+		WHERE req_id = #{reqId}
+	</update>
+
+	<!-- 1개 프로젝트 가져오기 -->
+	<select id="projectDetail" parameterType="ants.com.member.model.ProjectVo" resultType="ants.com.member.model.ProjectVo">
+		SELECT *
+		FROM PROJECT
+		WHERE REQ_ID = #{reqId}	
+	</select>
+
+</mapper>

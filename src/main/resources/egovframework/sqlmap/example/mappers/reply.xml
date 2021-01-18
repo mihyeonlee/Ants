@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="ants.com.board.memBoard.mapper.memBoardMapper">
+
+	<!-- 댓글 등록 -->
+	<insert id="insertreply" parameterType="ants.com.board.memBoard.model.ReplyVo">
+		INSERT INTO reply VALUES(
+			reply_seq.nextval,
+			#{someId}, 
+			#{replyCont}, 
+			sysdate,'N', 
+			#{categoryId}, 			
+	        <choose>
+	            <when test="categoryId == 10"> <!-- 투표 -->
+					(select req_id from vote where vote_id = #{someId}), 
+				</when>	         
+	            <when test="categoryId == 3"> <!-- 이슈 -->
+					(select req_id from issue where issue_id = #{someId}) ,
+				</when>
+	            <when test="categoryId == 4"> <!-- 건의사항 -->
+					(select req_id from todo where todo_id = (select todo_id from suggest where sgt_id = #{someId})) ,
+				</when>
+	            <when test="categoryId == 6"> <!-- 일정 -->
+					(select req_id from schedule where sche_id = #{someId}) ,
+				</when>
+				<otherwise>
+					#{reqId},
+				</otherwise>
+			</choose>
+		
+			#{memId}
+			)
+	</insert>
+	
+
+  <!-- 댓글목록 가져오기 -->
+  <select id="replylist" resultType="ants.com.board.memBoard.model.ReplyVo" parameterType="String">
+    SELECT  a.reply_id,
+		    a.some_id,
+		    a.reply_cont,
+		    to_char(a.reg_dt,'yyyy-mm-dd hh24:mi') as reg_dt ,
+		    a.del,
+		    a.category_id,
+		    a.req_id,
+		    a.mem_id,
+		    b.mem_name,
+		    b.mem_filepath
+    FROM reply a, member b
+    WHERE some_id = #{someId}
+      and category_id = #{categoryId}
+       <choose>
+           <when test="categoryId == 10"> <!-- 투표 -->
+			   and req_id = (select req_id from vote where vote_id = #{someId})
+			</when>	         
+	        <when test="categoryId == 3"> <!-- 이슈 -->
+				 and req_id = (select req_id from issue where issue_id = #{someId})
+			</when>
+		 	<when test="categoryId == 4"> <!-- 건의사항 -->
+		 		 and req_id = (select req_id from todo where todo_id = (select todo_id from suggest where sgt_id = #{someId}))
+			</when>
+		 	<when test="categoryId == 6"> <!-- 일정-->
+		 	 	and req_id = (select req_id from schedule where sche_id = #{someId})
+			</when>	
+		</choose>
+      and a.mem_id = b.mem_id
+    order by reg_dt, to_number(reply_id)
+  </select>
+  
+  
+   <!-- 댓글 삭제 status Y으로-->
+  <update id="delreply" parameterType="ants.com.board.memBoard.model.ReplyVo">
+  	UPDATE reply 
+  	SET del = 'Y' 
+  	WHERE reply_id = #{replyId} 
+  </update>
+  
+  
+  
+  
+  <!-- 북마크 -->
+  
+  
+  	<!-- 로그인한 사용자의 클릭한 프로젝트의 북마크 조회 -->
+  	<select id="getbookmark" parameterType="ants.com.member.model.ProjectMemberVo"
+				resultType="ants.com.board.memBoard.model.BookmarkVo">
+			select * from bookmark where req_id = #{reqId} and mem_id = #{memId}	
+	</select>
+	
+	<!-- 로그인한 사용자의 북마크 추가 -->
+	<insert id="insertbookmark" parameterType="ants.com.board.memBoard.model.BookmarkVo">
+		INSERT INTO bookmark (
+							    book_id,
+							    issue_id,
+							    req_id,
+							    mem_id
+								) VALUES (
+								    BOOK_SEQ.nextval,
+								    #{issueId},
+								    (select req_id from issue where issue_id =#{issueId}),
+								    #{memId}
+								)
+	</insert>
+	
+	<!-- 로그인한 사용자의 북마크 삭제 -->
+	<delete id="removebookmark" parameterType="ants.com.board.memBoard.model.BookmarkVo">
+		DELETE FROM bookmark
+		WHERE issue_id = #{issueId}
+		  	AND req_id = (select req_id from issue where issue_id =#{issueId})	   
+		    AND mem_id = #{memId}
+	</delete>
+	
+	
+	<!-- 로그인한 사용자의 모든 북마크 조회 -->
+  	<select id="getallbookmark" parameterType="ants.com.board.memBoard.model.AllBookMarkVo"
+				resultType="ants.com.board.memBoard.model.AllBookMarkVo">
+		SELECT Z.*
+	      FROM (
+	      	SELECT ROWNUM RNUM , 
+	           	   S.*
+		      FROM (		      
+					 select c.issue_id , c.issue_title , to_char(c.reg_dt,'YYYY-MM-DD hh:mm') as reg_dt ,
+						 c.issue_kind, c.book_id , d.mem_name , c.mem_id
+				  from
+					  (select a.issue_id , a.issue_title , a.issue_cont , a.reg_dt ,
+							  a.issue_kind, b.book_id , a.mem_id , a.issue_del
+						 from issue a 
+						 left outer join bookmark b 
+						 on a.issue_id = b.issue_id
+						 where b.mem_id = #{memId}
+                         and a.issue_id = b.issue_id) c , member d
+				  where d.mem_id = c.mem_id and c.issue_del = 'N'  
+				  
+					    <if test="searchKeyword != null and searchKeyword != ''">
+				        <choose>				         	
+				            <when test="searchCondition == 1">
+								AND	c.issue_title LIKE '%' || #{searchKeyword} || '%'
+							</when>
+							<when test="searchCondition == 2">
+								AND	d.mem_name LIKE '%' || #{searchKeyword} || '%'
+							</when>
+				     
+						</choose>
+					</if>				
+					<if test = "issueKind != null and issueKind != ''">
+							AND c.issue_kind = #{issueKind}
+					</if>
+					
+					<if test = "sort == 2 ">
+							ORDER BY c.reg_dt 
+					</if>
+					<if test = "sort != 2 ">
+							ORDER BY c.reg_dt desc
+					</if>
+					
+			  ) S
+		
+				 WHERE ROWNUM <![CDATA[ <= ]]> ${lastIndex} 
+				
+	      ) Z
+	     <![CDATA[WHERE Z.RNUM > #{firstIndex}]]>		
+	</select>
+	
+	
+	<!-- 북마크 수 조회하기 -->	
+	<select id="bookmarkPagingListCnt" parameterType="ants.com.board.memBoard.model.AllBookMarkVo"  
+				resultType="int">
+            select  count(*) as totCnt
+              from
+                   (select a.issue_title , a.issue_del, a.mem_id
+					 from issue a 
+					 left outer join bookmark b 
+					 on a.issue_id = b.issue_id
+					 where b.mem_id = #{memId}
+                        and a.issue_id = b.issue_id) c , member d
+			  where d.mem_id = c.mem_id and c.issue_del = 'N'  
+                      
+		<if test="searchKeyword != null and searchKeyword != ''">
+		        <choose>
+		            <when test="searchCondition == 1">
+						AND	c.issue_title LIKE '%' || #{searchKeyword} || '%'
+					</when>	         
+		            <when test="searchCondition == 2">
+						AND	d.mem_name LIKE '%' || #{searchKeyword} || '%'
+					</when>
+				</choose>
+			</if>		
+	</select>
+  
+</mapper>
